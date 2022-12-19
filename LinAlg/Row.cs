@@ -8,31 +8,156 @@ namespace LinAlg.Matrix
     public class Row
     {
         public Complex.Complex[] nums;
-        public Row(float[] arr) { nums = arr.Select(x => new Complex.Complex(x,0)).ToArray(); }
-        public Row(IEnumerable<float> arr) { nums = arr.Select(x => new Complex.Complex(x, 0)).ToArray(); }
-        public Row(Complex.Complex[] arr) { nums = arr.Select(x => x).ToArray(); }
-        public Row(IEnumerable<Complex.Complex> arr) { nums = arr.Select(x => x).ToArray(); }
 
-        public Row(int length) { nums = new Complex.Complex[length]; }
+        #region Constructors
 
+        /// <summary>
+        /// Creates a row
+        /// </summary>
+        /// <param name="arr"></param>
+        /// <exception cref="ArgumentException"></exception>
+        public Row(float[] arr)
+        {
+            if(arr == null || arr.Length == 0)
+                throw new ArgumentException("The collection can't be null or have a size of 0");
 
-        public static Row operator +(Row r1, Row r2) =>
-            new Row(r1.nums.Zip(r2.nums, (x, y) => x + y).ToArray());
+            nums = arr.Select(x => new Complex.Complex(x,0)).ToArray();
+        }
 
-        public static Row operator -(Row r1, Row r2) =>
-            new Row(r1.nums.Zip(r2.nums, (x, y) => x - y).ToArray());
-        public static Row operator *(Row r1, float multiplier) =>
-            new Row(r1.nums.Select(x => x * multiplier).ToArray());
+        public Row(Span<float> arr)
+        {
+            nums = new Complex.Complex[arr.Length];
+            for(int i = 0; i < arr.Length; i++)
+            {
+                nums[i] = new Complex.Complex(arr[i],0);
+            }
+        }
 
-        public static Row operator *(Row r1, Complex.Complex multiplier) =>
-            new Row(r1.nums.Select(x => x * multiplier).ToArray());
+        /// <summary>
+        /// Creates a row
+        /// </summary>
+        /// <param name="arr"></param>
+        /// <exception cref="ArgumentException"></exception>
+        public Row(IEnumerable<float> arr)
+        {
+            if(arr == null || !arr.Any())
+                throw new ArgumentException("The collection can't be null or have a size of 0");
+
+            nums = arr.Select(x => new Complex.Complex(x, 0)).ToArray(); 
+        }
+
+        /// <summary>
+        /// Creates a row
+        /// </summary>
+        /// <param name="arr"></param>
+        /// <exception cref="ArgumentException"></exception>
+        public Row(Complex.Complex[] arr) 
+        {
+            if (arr == null || arr.Length == 0)
+                throw new ArgumentException("The collection can't be null or have a size of 0");
+
+            nums = arr.Select(x => x).ToArray();
+        }
+
+        /// <summary>
+        /// Creates a row
+        /// </summary>
+        /// <param name="arr"></param>
+        /// <exception cref="ArgumentException"></exception>
+        public Row(IEnumerable<Complex.Complex> arr)
+        {
+            if (arr == null || !arr.Any())
+                throw new ArgumentException("The collection can't be null or have a size of 0");
+
+            nums = arr.Select(x => x).ToArray();
+        }
+
+        /// <summary>
+        /// Creates a row with all elements being 0
+        /// </summary>
+        /// <param name="length"></param>
+        /// <exception cref="ArgumentException"></exception>
+        public Row(int length)
+        {
+            if(length <= 0)
+                throw new ArgumentException("The length of a row must be greater or equal to 0");
+
+            nums = new Complex.Complex[length];
+        }
+        #endregion
+
+        /// <summary>
+        /// Adds the 2 rows together
+        /// </summary>
+        /// <param name="r1"></param>
+        /// <param name="r2"></param>
+        /// <returns>The resulting row</returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static Row operator +(Row r1, Row r2)
+        {
+            if (r1.nums.Length != r2.nums.Length)
+                throw new ArgumentException("The length of the rows needs to be equal");
+
+            return new Row(r1.nums.Zip(r2.nums, (x, y) => x + y).ToArray());
+        }
+
+        /// <summary>
+        /// Subtracts the 2 rows
+        /// </summary>
+        /// <param name="r1"></param>
+        /// <param name="r2"></param>
+        /// <returns>The resulting row</returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static Row operator -(Row r1, Row r2)
+        {
+            if (r1.nums.Length != r2.nums.Length)
+                throw new ArgumentException("The length of the rows needs to be equal");
+
+            return new Row(r1.nums.Zip(r2.nums, (x, y) => x - y).ToArray());
+        }
+
+        /// <summary>
+        /// Multiplies the row with a number
+        /// </summary>
+        /// <param name="r1"></param>
+        /// <param name="multiplier"></param>
+        /// <returns>The resulting row</returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static Row operator *(Row r1, float multiplier)
+        {
+            if(multiplier == float.NaN)
+                throw new ArgumentException("Multiplier cannot be NaN");
+
+            return new Row(r1.nums.Select(x => x * multiplier).ToArray());
+        }
+
+        /// <summary>
+        /// Multiplies the row with a number
+        /// </summary>
+        /// <param name="r1"></param>
+        /// <param name="multiplier"></param>
+        /// <returns>The resulting row</returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static Row operator *(Row r1, Complex.Complex multiplier)
+        {
+            if(multiplier.Real == float.NaN || (float)multiplier.Imaginary == float.NaN)
+                throw new ArgumentException("Multiplier cannot be NaN");
+
+            return new Row(r1.nums.Select(x => x * multiplier).ToArray());
+        }
 
 
         #region Comparison
         public static bool operator ==(Row r1, Row r2) =>
             r1.nums.SequenceEqual(r2.nums);
+
         public static bool operator !=(Row r1, Row r2) =>
             !r1.nums.SequenceEqual(r2.nums);
+
+        public override bool Equals(object? obj) =>
+            obj is Row && obj != null
+            ? this == (Row)obj
+            : false;
         #endregion
 
         public override string ToString()
@@ -42,11 +167,6 @@ namespace LinAlg.Matrix
                 output += $" {(num)}";
             return output;
         }
-
-        public override bool Equals(object? obj) =>
-            obj is Row && obj != null
-            ? this == (Row)obj
-            : false;
 
         public override int GetHashCode()
         {
