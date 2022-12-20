@@ -1,13 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using LinAlg.Complex;
 
-namespace LinAlg.Matrix
+
+namespace LinAlg.Matricies
 {
     public class Row
     {
-        public Complex.Complex[] nums;
+        public Complex.ComplexNumber[] nums;
 
         #region Constructors
 
@@ -18,18 +16,18 @@ namespace LinAlg.Matrix
         /// <exception cref="ArgumentException"></exception>
         public Row(float[] arr)
         {
-            if(arr == null || arr.Length == 0)
+            if (arr == null || arr.Length == 0)
                 throw new ArgumentException("The collection can't be null or have a size of 0");
 
-            nums = arr.Select(x => new Complex.Complex(x,0)).ToArray();
+            nums = arr.Select(x => new ComplexNumber(x, 0)).ToArray();
         }
 
         public Row(Span<float> arr)
         {
-            nums = new Complex.Complex[arr.Length];
-            for(int i = 0; i < arr.Length; i++)
+            nums = new ComplexNumber[arr.Length];
+            for (int i = 0; i < arr.Length; i++)
             {
-                nums[i] = new Complex.Complex(arr[i],0);
+                nums[i] = new ComplexNumber(arr[i], 0);
             }
         }
 
@@ -40,10 +38,10 @@ namespace LinAlg.Matrix
         /// <exception cref="ArgumentException"></exception>
         public Row(IEnumerable<float> arr)
         {
-            if(arr == null || !arr.Any())
+            if (arr == null || !arr.Any())
                 throw new ArgumentException("The collection can't be null or have a size of 0");
 
-            nums = arr.Select(x => new Complex.Complex(x, 0)).ToArray(); 
+            nums = arr.Select(x => new ComplexNumber(x, 0)).ToArray();
         }
 
         /// <summary>
@@ -51,7 +49,7 @@ namespace LinAlg.Matrix
         /// </summary>
         /// <param name="arr"></param>
         /// <exception cref="ArgumentException"></exception>
-        public Row(Complex.Complex[] arr) 
+        public Row(ComplexNumber[] arr)
         {
             if (arr == null || arr.Length == 0)
                 throw new ArgumentException("The collection can't be null or have a size of 0");
@@ -64,7 +62,7 @@ namespace LinAlg.Matrix
         /// </summary>
         /// <param name="arr"></param>
         /// <exception cref="ArgumentException"></exception>
-        public Row(IEnumerable<Complex.Complex> arr)
+        public Row(IEnumerable<ComplexNumber> arr)
         {
             if (arr == null || !arr.Any())
                 throw new ArgumentException("The collection can't be null or have a size of 0");
@@ -79,10 +77,10 @@ namespace LinAlg.Matrix
         /// <exception cref="ArgumentException"></exception>
         public Row(int length)
         {
-            if(length <= 0)
+            if (length <= 0)
                 throw new ArgumentException("The length of a row must be greater or equal to 0");
 
-            nums = new Complex.Complex[length];
+            nums = new Complex.ComplexNumber[length];
         }
         #endregion
 
@@ -125,7 +123,7 @@ namespace LinAlg.Matrix
         /// <exception cref="ArgumentException"></exception>
         public static Row operator *(Row r1, float multiplier)
         {
-            if(multiplier == float.NaN)
+            if (multiplier == float.NaN)
                 throw new ArgumentException("Multiplier cannot be NaN");
 
             return new Row(r1.nums.Select(x => x * multiplier).ToArray());
@@ -138,14 +136,13 @@ namespace LinAlg.Matrix
         /// <param name="multiplier"></param>
         /// <returns>The resulting row</returns>
         /// <exception cref="ArgumentException"></exception>
-        public static Row operator *(Row r1, Complex.Complex multiplier)
+        public static Row operator *(Row r1, Complex.ComplexNumber multiplier)
         {
-            if(multiplier.Real == float.NaN || (float)multiplier.Imaginary == float.NaN)
+            if (multiplier.Real == float.NaN || (float)multiplier.Imaginary == float.NaN)
                 throw new ArgumentException("Multiplier cannot be NaN");
 
             return new Row(r1.nums.Select(x => x * multiplier).ToArray());
         }
-
 
         #region Comparison
         public static bool operator ==(Row r1, Row r2) =>

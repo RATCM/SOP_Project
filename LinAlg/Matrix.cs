@@ -1,22 +1,117 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
+﻿using LinAlg.Complex;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
-using LinAlg.Complex;
 
-namespace LinAlg.Matrix
+namespace LinAlg.Matricies
 {
     public class Matrix
     {
+        protected Row[] rows;
+
+        public ComplexNumber this[int index1, int index2]
+        {
+            get => rows[index1].nums[index2];
+            set => rows[index1].nums[index2] = value;
+        }
+
+        /// <summary>
+        /// The eigenvalues of the matrix
+        /// </summary>
+        public ComplexNumber[] eigenvalues
+        {
+            get
+            {
+                //Complex.Complex[] values = new Complex.Complex[rowLength];
+                List<ComplexNumber> values = new();
+                Matrix A = new Matrix(rows);
+                //(Matrix, Matrix) QR = new (Matrix.Identity(rowLength), Matrix.Identity(rowLength));
+                for (int i = 0; i < 20 * A.colLength * A.colLength * A.colLength; i++)
+                {
+                    var QR = A.QRDecomposition();
+
+                    A = QR.Item2 * QR.Item1;
+                }
+
+                for (int i = 0; i < rowLength; i++)
+                {
+                    if (MathF.Abs((this - Matrix.Identity(rowLength) * A[i, i]).Determinant) > 0.3)
+                    {
+                        continue;
+                    }
+
+                    values.Add(new ComplexNumber(A[i, i].Real, 0));
+                }
+
+                return values.ToArray();
+            }
+        }
+
+        /// <summary>
+        /// The eigenvectors of the matrix
+        /// </summary>
+        public Vector[] eigenvectors
+        {
+            get
+            {
+                ComplexNumber[] values = eigenvalues;
+                Vector[] vecotrs = new Vector[values.Length];
+                for (int i = 0; i < vecotrs.Length; i++)
+                {
+                    var m = this - Matrix.Identity(rowLength) * values[i];
+
+                    Vector vec = new(rowLength);
+                    // We define the last element to be 1 to avoid trivial solutions
+                    vec[0] = new ComplexNumber(1, 0);
+
+                    // solve equation
+                    var v2 = m.Inverse * vec;
+
+                    //Vector v2 = m ^ vec;
+
+                    // normalize vector by making last value 1
+                    vecotrs[i] = 1f / v2[rowLength - 1].Real * v2;
+
+                    if (v2.arr.Select(r => r.Real).Contains(float.NaN))
+                    {
+                        // idk what to do at this point, this is probably the result of a floating point error
+                        throw new Exception();
+                    }
+                }
+
+                return vecotrs;
+            }
+        }
+
+        /// <summary>
+        /// The number of rows in the matrix
+        /// </summary>
+        public int rowLength => rows.Length;
+
+        /// <summary>
+        /// The number of columns in the matrix
+        /// </summary>
+        public int colLength => rows[0].nums.Length;
+
+        /// <summary>
+        /// The inverse of the matrix
+        /// </summary>
+        public Matrix Inverse => (this ^ Identity(rows.Length)).GetMatricies().Item2;
+
+        /// <summary>
+        /// The determinant of the matrix
+        /// </summary>
+        public float Determinant => determinant();
+
+        /// <summary>
+        /// The matrix transposed
+        /// </summary>
+        public Matrix Transposed => Transpose();
+
 
         private (Matrix, Matrix) QRDecomposition()
         {
             Matrix[] H = new Matrix[rowLength + 1];
             Matrix[] A = new Matrix[rowLength + 1];
-            A[0] = new Matrix(this.rows);
+            A[0] = new Matrix(rows);
 
             // The output matricies
             Matrix Q = Matrix.Identity(rowLength);
@@ -35,27 +130,29 @@ namespace LinAlg.Matrix
                         choiceOfMatrix[j - i, k - i] = A[i][j, k];
                     }
                 }
-    
 
-                Vector vec = new Vector(rowLength - i);
+
+                Vector vec = new(rowLength - i);
 
                 // Just a column vector with the first value as 1
                 Vector colVec = new float[rowLength - i];
-                colVec[0] = new Complex.Complex(1,0);
+                colVec[0] = new ComplexNumber(1, 0);
 
                 float maxNum = 0;
                 for (int j = 0; j < rowLength - i; j++)
                 {
                     vec[j] = choiceOfMatrix[j, 0];
                     if (maxNum < MathF.Abs(vec[j].Real))
+                    {
                         maxNum = MathF.Abs(vec[j].Real);
+                    }
                 }
                 float sign = vec[0].Real >= 0 ? 1 : -1;
 
                 var u = vec + sign * vec.norm * colVec;
                 var v = 1f / u[0].Real * u;
 
-                float multiplier = 2 / ((v * v).Real);
+                float multiplier = 2 / (v * v).Real;
 
                 var vecAsMatrix = v.ToMatrix();
 
@@ -76,20 +173,19 @@ namespace LinAlg.Matrix
                         A[i + 1][j, k] = subMatrixA[j - i, k - i];
                     }
                 }
-                Q = Q * H[i];
+                Q *= H[i];
                 A[i + 1] = H[i] * A[i];
                 R = A[i];
             }
             //Console.WriteLine(this);
 
-            return (Q, (this.Transposed * Q).Transposed);
+            return (Q, (Transposed * Q).Transposed);
         }
 
-        private Complex.Complex[] Calc2x2EigenValues()
+        private ComplexNumber[] Calc2x2EigenValues()
         {
-            Complex.Complex[] complex = new Complex.Complex[2];
-
-            var det = this[0, 0] * this[1, 1] - this[0, 1] * this[1, 0];
+            ComplexNumber[] complex = new ComplexNumber[2];
+            _ = this[0, 0] * this[1, 1] - this[0, 1] * this[1, 0];
 
             float a = 1;
             float b = (-this[0, 0] - this[1, 1]).Real;
@@ -97,15 +193,15 @@ namespace LinAlg.Matrix
 
             float dis = b * b - 4 * a * c;
 
-            if(dis < 0)
+            if (dis < 0)
             {
-                complex[0] = new Complex.Complex(-b / (2 * a), MathF.Sqrt(-dis) / (2 * a));
-                complex[1] = new Complex.Complex(-b / (2 * a),-MathF.Sqrt(-dis) / (2 * a));
+                complex[0] = new ComplexNumber(-b / (2 * a), MathF.Sqrt(-dis) / (2 * a));
+                complex[1] = new ComplexNumber(-b / (2 * a), -MathF.Sqrt(-dis) / (2 * a));
             }
             else
             {
-                complex[0] = new Complex.Complex((-b + MathF.Sqrt(dis)) / (2 * a),0);
-                complex[1] = new Complex.Complex((-b - MathF.Sqrt(dis)) / (2 * a),0);
+                complex[0] = new ComplexNumber((-b + MathF.Sqrt(dis)) / (2 * a), 0);
+                complex[1] = new ComplexNumber((-b - MathF.Sqrt(dis)) / (2 * a), 0);
             }
 
             return complex;
@@ -115,135 +211,22 @@ namespace LinAlg.Matrix
         {
             //float value = 0;
             int iterations = 10;
-            Random rand = new Random();
+            Random rand = new();
             Vector bk = new float[rowLength];
             for (int i = 0; i < rowLength; i++)
             { // Give random numbers to vector
-                bk[i] = new Complex.Complex(rand.Next(1000) / 100f,0);
+                bk[i] = new ComplexNumber(rand.Next(1000) / 100f, 0);
             }
             for (int i = 0; i < iterations; i++)
             {
                 Vector bk_1 = this * bk;
 
-                var bk_1_norm = MathF.Sqrt((bk_1 * bk_1).Real);
+                float bk_1_norm = MathF.Sqrt((bk_1 * bk_1).Real);
 
                 bk = bk_1 * (1f / bk_1_norm);
             }
             return bk;
         }
-        
-        public Complex.Complex this[int index1, int index2]
-        {
-            get => rows[index1].nums[index2];
-            set => rows[index1].nums[index2] = value;
-        }
-        
-        /// <summary>
-        /// The eigenvalues of the matrix
-        /// </summary>
-        public Complex.Complex[] eigenvalues
-        {
-            get
-            {
-                //Complex.Complex[] values = new Complex.Complex[rowLength];
-                List<Complex.Complex> values = new();
-                Matrix A = new Matrix(this.rows);
-                //(Matrix, Matrix) QR = new (Matrix.Identity(rowLength), Matrix.Identity(rowLength));
-                for (int i = 0; i < 20 * A.colLength * A.colLength * A.colLength; i++)
-                {
-                    var QR = A.QRDecomposition();
-
-                    A = QR.Item2 * QR.Item1;
-                }
-
-                for (int i = 0; i < rowLength; i++)
-                {
-                    if (MathF.Abs((this - Matrix.Identity(this.rowLength) * A[i, i]).Determinant) > 0.3)
-                        continue;
-
-                    values.Add(new Complex.Complex(A[i, i].Real, 0));
-                    //if (i > 0 && MathF.Abs(A[i,i-1].Real) > 1E-20)
-                    //{
-
-                    //    if(i == rowLength - 1)
-                    //    {
-                    //        values.RemoveAt(values.Count - 1);
-                    //    }
-                    //    continue;
-                    //}
-                    //else
-                    //{
-                    //    //values[i] = new Complex.Complex(A[i, i].Real,0);
-                    //}
-                }
-
-                return values.ToArray();
-            }
-        }
-
-        /// <summary>
-        /// The eigenvectors of the matrix
-        /// </summary>
-        public Vector[] eigenvectors
-        {
-            get
-            {
-                var values = this.eigenvalues;
-                Vector[] vecotrs = new Vector[values.Length];
-                for (int i = 0; i < vecotrs.Length; i++)
-                {
-                    var m = this - (Matrix.Identity(rowLength) * values[i]);
-
-                    Vector vec = new Vector(rowLength);
-                    // We define the last element to be 1 to avoid trivial solutions
-                    vec[0] = new Complex.Complex(1,0);
-
-                    // solve equation
-                    var v2 = m.Inverse * vec;
-
-                    //Vector v2 = m ^ vec;
-
-                    // normalize vector by making last value 1
-                    vecotrs[i] = 1f / v2[rowLength - 1].Real * v2;
-
-                    if(v2.arr.Select(r => r.Real).Contains(float.NaN))
-                    {
-                        // idk what to do at this point, this is probably the result of a floating point error
-                        throw new Exception();
-                    }    
-                }
-
-                return vecotrs;
-            }
-        }
-
-        /// <summary>
-        /// The number of rows in the matrix
-        /// </summary>
-        public int rowLength => rows.Length;
-
-        /// <summary>
-        /// The number of columns in the matrix
-        /// </summary>
-        public int colLength => rows[0].nums.Length;
-
-
-        /// <summary>
-        /// The inverse of the matrix
-        /// </summary>
-        public Matrix Inverse => (this ^ Identity(rows.Length)).GetMatricies().Item2;
-
-        /// <summary>
-        /// The determinant of the matrix
-        /// </summary>
-        public float Determinant => determinant();
-
-        /// <summary>
-        /// The matrix transposed
-        /// </summary>
-        public Matrix Transposed => Transpose();
-
-        protected Row[] rows;
 
         #region Constructors
 
@@ -256,21 +239,23 @@ namespace LinAlg.Matrix
         {
             int row_count = arr.GetLength(0);
             int col_count = arr.GetLength(1);
-            if(row_count == 0 || col_count == 0)
+            if (row_count == 0 || col_count == 0)
             {
                 throw new InvalidSizeException("The size of the arrays rows and columns must be greater than zero");
             }
 
-            this.rows = new Row[row_count];
+            rows = new Row[row_count];
 
             for (int i = 0; i < row_count; i++)
             {
                 float[] temp = new float[col_count];
 
                 for (int j = 0; j < col_count; j++)
+                {
                     temp[j] = arr[i, j];
+                }
 
-                this.rows[i] = new Row(temp);
+                rows[i] = new Row(temp);
             }
         }
 
@@ -287,18 +272,18 @@ namespace LinAlg.Matrix
             //}
 
             int row_count = arr.Length;
-            int col_count = arr[0].Length;
+            _ = arr[0].Length;
 
             // Its faster to iterate through a span than a array
-            var temp_arr = arr.AsSpan();
-            this.rows = new Row[row_count];
+            Span<float[]> temp_arr = arr.AsSpan();
+            rows = new Row[row_count];
 
             for (int i = 0; i < row_count; i++)
             {
                 //if (temp_arr[i].Length != col_count)
                 //    throw new InvalidSizeException("The size of the columns must all be equal");
 
-                this.rows[i] = new Row(temp_arr[i].AsSpan());
+                rows[i] = new Row(temp_arr[i].AsSpan());
             }
         }
 
@@ -309,8 +294,10 @@ namespace LinAlg.Matrix
         /// <exception cref="InvalidSizeException"></exception>
         public Matrix(IEnumerable<float> arr)
         {
-            if(arr == null || !arr.Any())
+            if (arr == null || !arr.Any())
+            {
                 throw new InvalidSizeException("The array must be non null and of size 0 or greater");
+            }
 
             rows = new Row[] { new Row(arr) };
         }
@@ -322,10 +309,12 @@ namespace LinAlg.Matrix
         /// <exception cref="InvalidSizeException"></exception>
         public Matrix(IEnumerable<Row> rows)
         {
-            if(rows == null || !rows.Any())
+            if (rows == null || !rows.Any())
+            {
                 throw new InvalidSizeException("The array must be non null and of size 0 or greater");
+            }
 
-            this.rows = (rows.Select(x => new Row(x.nums))).ToArray();
+            this.rows = rows.Select(x => new Row(x.nums)).ToArray();
         }
 
         /// <summary>
@@ -336,13 +325,17 @@ namespace LinAlg.Matrix
         /// <exception cref="InvalidSizeException"></exception>
         public Matrix(int rows, int cols)
         {
-            if(rows <= 0 || cols <= 0)
+            if (rows <= 0 || cols <= 0)
+            {
                 throw new InvalidSizeException("The rows and column size must 0 or greater");
+            }
 
             this.rows = new Row[rows];
 
             for (int i = 0; i < rows; i++)
+            {
                 this.rows[i] = new Row(cols);
+            }
         }
 
         #endregion
@@ -352,9 +345,11 @@ namespace LinAlg.Matrix
         /// </summary>
         /// <param name="mat2"></param>
         /// <returns>True or False</returns>
-        public bool EqualSize(Matrix mat2) =>
-            this.rows.Length == mat2.rows.Length &&
-            this.rows[0].nums.Length == mat2.rows[0].nums.Length;
+        public bool EqualSize(Matrix mat2)
+        {
+            return rows.Length == mat2.rows.Length &&
+            rows[0].nums.Length == mat2.rows[0].nums.Length;
+        }
 
         /// <summary>
         /// Adds 2 matricies of equal size
@@ -365,13 +360,12 @@ namespace LinAlg.Matrix
         /// <exception cref="InvalidDimensionsException"></exception>
         public static Matrix operator +(Matrix mat1, Matrix mat2)
         {
-            if (!mat1.EqualSize(mat2))
-                throw new InvalidDimensionsException(
+            return !mat1.EqualSize(mat2)
+                ? throw new InvalidDimensionsException(
                     "The dimensions of the 2 matricies must be equal, expected " +
                     $"{mat1.rowLength}x{mat1.colLength} + {mat1.rowLength}x{mat1.colLength} but got " +
-                    $"{mat1.rowLength}x{mat1.colLength} + {mat1.rowLength}x{mat1.colLength}");
-
-            return new Matrix(mat1.rows.Zip(mat2.rows, (x, y) => x + y));
+                    $"{mat1.rowLength}x{mat1.colLength} + {mat1.rowLength}x{mat1.colLength}")
+                : new Matrix(mat1.rows.Zip(mat2.rows, (x, y) => x + y));
         }
 
         /// <summary>
@@ -383,13 +377,12 @@ namespace LinAlg.Matrix
         /// <exception cref="InvalidDimensionsException"></exception>
         public static Matrix operator -(Matrix mat1, Matrix mat2)
         {
-            if (!mat1.EqualSize(mat2))
-                throw new InvalidDimensionsException(
+            return !mat1.EqualSize(mat2)
+                ? throw new InvalidDimensionsException(
                         "The dimensions of the 2 matricies must be equal, " +
                         $"expected {mat1.rowLength}x{mat1.colLength} - {mat1.rowLength}x{mat1.colLength} " +
-                        $"but got {mat1.rowLength}x{mat1.colLength} - {mat2.rowLength}x{mat2.colLength}");
-
-            return new Matrix(mat1.rows.Zip(mat2.rows, (x, y) => x - y));
+                        $"but got {mat1.rowLength}x{mat1.colLength} - {mat2.rowLength}x{mat2.colLength}")
+                : new Matrix(mat1.rows.Zip(mat2.rows, (x, y) => x - y));
         }
 
         /// <summary>
@@ -401,10 +394,9 @@ namespace LinAlg.Matrix
         /// <exception cref="ArgumentException"></exception>
         public static Matrix operator *(Matrix mat, float multiplier)
         {
-            if (multiplier == float.NaN)
-                throw new ArgumentException("The multiplier must not be NaN");
-
-            return new Matrix(mat.rows.Select(x => x * multiplier));
+            return multiplier == float.NaN
+                ? throw new ArgumentException("The multiplier must not be NaN")
+                : new Matrix(mat.rows.Select(x => x * multiplier));
         }
 
         /// <summary>
@@ -414,22 +406,9 @@ namespace LinAlg.Matrix
         /// <param name="multiplier"></param>
         /// <returns>The resulting matrix</returns>
         /// <exception cref="ArgumentException"></exception>
-        public static Matrix operator *(float multiplier, Matrix mat) =>
-            mat * multiplier;
-
-        /// <summary>
-        /// Multiplies a matrix by a complex scalar
-        /// </summary>
-        /// <param name="mat"></param>
-        /// <param name="multiplier"></param>
-        /// <returns>The resulting matrix</returns>
-        /// <exception cref="ArgumentException"></exception>
-        public static Matrix operator *(Matrix mat, Complex.Complex multiplier)
+        public static Matrix operator *(float multiplier, Matrix mat)
         {
-            if(multiplier.Real == float.NaN || (float)multiplier.Imaginary == float.NaN)
-                throw new ArgumentException("The multiplier must not be NaN");
-
-            return new Matrix(mat.rows.Select(x => x * multiplier));
+            return mat * multiplier;
         }
 
         /// <summary>
@@ -439,8 +418,24 @@ namespace LinAlg.Matrix
         /// <param name="multiplier"></param>
         /// <returns>The resulting matrix</returns>
         /// <exception cref="ArgumentException"></exception>
-        public static Matrix operator *(Complex.Complex multiplier, Matrix mat) =>
-            mat * multiplier;
+        public static Matrix operator *(Matrix mat, ComplexNumber multiplier)
+        {
+            return multiplier.Real == float.NaN || (float)multiplier.Imaginary == float.NaN
+                ? throw new ArgumentException("The multiplier must not be NaN")
+                : new Matrix(mat.rows.Select(x => x * multiplier));
+        }
+
+        /// <summary>
+        /// Multiplies a matrix by a complex scalar
+        /// </summary>
+        /// <param name="mat"></param>
+        /// <param name="multiplier"></param>
+        /// <returns>The resulting matrix</returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static Matrix operator *(ComplexNumber multiplier, Matrix mat)
+        {
+            return mat * multiplier;
+        }
 
         /// <summary>
         /// Multiplies 2 matricies
@@ -451,7 +446,7 @@ namespace LinAlg.Matrix
         /// <exception cref="InvalidDimensionsException"></exception>
         public static Matrix operator *(Matrix mat1, Matrix mat2)
         {
-            if(mat1.colLength != mat2.rowLength)
+            if (mat1.colLength != mat2.rowLength)
             {
                 throw new InvalidDimensionsException(
                     "The number of columns in the first matrix must be equal to the number of rows in the second matrix, " +
@@ -459,10 +454,8 @@ namespace LinAlg.Matrix
                     $"but got {mat1.rowLength}x{mat1.colLength} * {mat2.rowLength}x{mat2.colLength}");
             }
 
-            var rowCount = mat1.rows.Length;
-            var colCount = mat2.rows[0].nums.Length;
-
-            //var rect = new Matrix(rowCount, colCount);
+            var rowCount = mat1.rowLength;
+            var colCount = mat2.colLength;
 
             float[,] ret = new float[rowCount, colCount];
 
@@ -470,7 +463,7 @@ namespace LinAlg.Matrix
             {
                 for (int j = 0; j < colCount; j++)
                 {
-                    for (int k = 0; k < mat2.rows.Length; k++)
+                    for (int k = 0; k < mat2.rowLength; k++)
                     {
                         ret[i, j] += (mat1[i, k] * mat2[k, j]).Real;
                     }
@@ -478,7 +471,35 @@ namespace LinAlg.Matrix
             }
             return new Matrix(ret);
         }
+        public static Matrix RegularMultiply(Matrix m1, Matrix m2)
+        {
+            if (m1.colLength != m2.rowLength)
+            {
+                throw new InvalidDimensionsException(
+                    "The number of columns in the first matrix must be equal to the number of rows in the second matrix, " +
+                    $"expected {m1.rowLength}x{m1.colLength} * {m1.colLength}x{m2.colLength} " +
+                    $"but got {m1.rowLength}x{m1.colLength} * {m2.rowLength}x{m2.colLength}");
+            }
 
+            int row_count = m1.rowLength;
+            int col_count = m2.colLength;
+
+            float[][] ret = new float[row_count][];
+
+            for (int i = 0; i < m1.rowLength; i++)
+            {
+                var r1 = m1.rows[i].nums.AsSpan();
+                ret[i] = new float[col_count];
+                for (int j = 0; j < col_count; j++)
+                {
+                    for (int k = 0; k < row_count; k++)
+                    {
+                        ret[i][j] += (r1[k] * m2[k, j]).Real;
+                    }
+                }
+            }
+            return new Matrix(ret);
+        }
         public static Matrix ParallelMultiply(Matrix m1, Matrix m2)
         {
             if (m1.colLength != m2.rowLength)
@@ -492,32 +513,20 @@ namespace LinAlg.Matrix
             int row_count = m1.rowLength;
             int col_count = m2.colLength;
 
-            float[,] ret = new float[row_count, col_count];
+            float[][] ret = new float[row_count][];
 
             Parallel.For(0, m1.rowLength, i =>
             {
+                var r1 = m1.rows[i].nums.AsSpan();
+                ret[i] = new float[col_count];
                 for (int j = 0; j < col_count; j++)
                 {
-                    for (int k = 0; k < m2.rows.Length; k++)
+                    for (int k = 0; k < row_count; k++)
                     {
-                        ret[i,j] += (m1[i, k] * m2[k, j]).Real;
+                        ret[i][j] += (r1[k] * m2[k, j]).Real;
                     }
                 }
             });
-
-            //float[][] ret = new float[row_count][];
-
-            //Parallel.For(0, m1.rowLength, i =>
-            //{
-            //    ret[i] = new float[col_count];
-            //    for (int j = 0; j < col_count; j++)
-            //    {
-            //        for (int k = 0; k < m2.rows.Length; k++)
-            //        {
-            //            ret[i][j] += (m1[i, k] * m2[k, j]).Real;
-            //        }
-            //    }
-            //});
 
             return new Matrix(ret);
         }
@@ -531,7 +540,7 @@ namespace LinAlg.Matrix
         /// <exception cref="InvalidDimensionsException"></exception>
         public static Vector operator *(Matrix mat, Vector vec)
         {
-            if(mat.colLength != vec.size)
+            if (mat.colLength != vec.size)
             {
                 throw new InvalidDimensionsException(
                     "The number of columns in the first matrix must be equal to the number of rows in the second matrix, " +
@@ -539,7 +548,7 @@ namespace LinAlg.Matrix
                     $"but got {mat.rowLength}x{mat.colLength} * {vec.size}x1");
             }
 
-            Vector vecOut = new Vector(vec.size);
+            Vector vecOut = new(vec.size);
 
             int rowCount = mat.rows.Length;
 
@@ -554,13 +563,16 @@ namespace LinAlg.Matrix
         }
 
         // Implicitly converts arrays to 1xn matricies
-        public static implicit operator Matrix(float[] array) =>
-            new Matrix(array);
-
+        public static implicit operator Matrix(float[] array)
+        {
+            return new Matrix(array);
+        }
 
         // Implicitly converts 2d arrays to matricies
-        public static implicit operator Matrix(float[,] array) =>
-            new Matrix(array);
+        public static implicit operator Matrix(float[,] array)
+        {
+            return new Matrix(array);
+        }
 
         /// <summary>
         /// Creates the identity matrix
@@ -570,14 +582,17 @@ namespace LinAlg.Matrix
         /// <exception cref="ArgumentException"></exception>
         public static Matrix Identity(int dimensions)
         {
-            if(dimensions <= 0)
+            if (dimensions <= 0)
             {
                 throw new ArgumentException("The number of dimensions cant be less or equal to zero");
             }
 
             Matrix ret = new Matrix(dimensions, dimensions);
             for (int i = 0; i < dimensions; i++)
-                ret.rows[i].nums[i] = new Complex.Complex(1,0);
+            {
+                ret.rows[i].nums[i] = new ComplexNumber(1, 0);
+            }
+
             return ret;
         }
 
@@ -590,8 +605,10 @@ namespace LinAlg.Matrix
         /// <exception cref="InvalidDimensionsException"></exception>
         public static AugmentedMatrix operator |(Matrix mat1, Matrix mat2) // Agumented matrix
         {
-            if(mat1.rowLength != mat2.rowLength)
+            if (mat1.rowLength != mat2.rowLength)
+            {
                 throw new InvalidDimensionsException("The row size of the 2 matricies must be equal");
+            }
 
             int rowLen = mat1.rowLength;
             int colLen = mat1.colLength + mat2.colLength;
@@ -606,13 +623,15 @@ namespace LinAlg.Matrix
             return new AugmentedMatrix(ret.rows, mat1.rows[0].nums.Length);
         }
 
-        public static bool operator ==(Matrix m1, Matrix m2) =>
-            m1.rows.SequenceEqual(m2.rows);
+        public static bool operator ==(Matrix m1, Matrix m2)
+        {
+            return m1.rows.SequenceEqual(m2.rows);
+        }
 
-        public static bool operator !=(Matrix m1, Matrix m2) =>
-            !m1.rows.SequenceEqual(m2.rows);
-
-
+        public static bool operator !=(Matrix m1, Matrix m2)
+        {
+            return !m1.rows.SequenceEqual(m2.rows);
+        }
 
         // This swaps the rows where the number on the diagonal is zero
         // The method is only used for gaussian elimination and shouldn't be used anywhere else
@@ -621,7 +640,7 @@ namespace LinAlg.Matrix
             Matrix ret = new Matrix(mat1.rows);
 
             int[] pos = new int[mat1.rowLength];
-            var zero = new Complex.Complex(0, 0);
+            ComplexNumber zero = new(0, 0);
 
 
             // ensures that the numbers on diagonal isnt 0
@@ -638,15 +657,16 @@ namespace LinAlg.Matrix
 
 
                 if (NonZeroRow is null)
+                {
                     throw new Exception("Couldn't realign the matrix");
-
+                }
 
                 ret.rows[colIndex] = ret.rows[row];
                 ret.rows[row] = NonZeroRow;
 
                 pos[row] = colIndex;
                 pos[colIndex] = row;
-              
+
             }
 
             return (pos, ret);
@@ -662,8 +682,7 @@ namespace LinAlg.Matrix
         /// <exception cref="Exception"></exception>
         public static AugmentedMatrix operator ^(Matrix mat1, Matrix mat2) // Gaussian elimination
         {
-
-            (int[] pos, mat1) = RealignMatrix(mat1);
+            (int[] pos, mat1) = RealignMatrix(mat1); // Realigns matrix such that the pivot is not 0
             AugmentedMatrix matrix = mat1 | mat2;
 
 
@@ -676,7 +695,7 @@ namespace LinAlg.Matrix
                     var multiplier = matrix[row, col] / pivot;
                     matrix.rows[row] -= matrix.rows[col] * multiplier;
                 }
-                matrix.rows[col] *= 1f / (matrix[col,col]);
+                matrix.rows[col] *= 1f / matrix[col, col];
             }
 
             for (int col = matrix.linePos; col > 0; col--)
@@ -690,7 +709,7 @@ namespace LinAlg.Matrix
                 }
             }
 
-            for(int i = 0; i < pos.Length; i++)
+            for (int i = 0; i < pos.Length; i++) // Aligns it back to its actual form
             {
                 matrix.SwapCols(i, pos[i]);
             }
@@ -701,23 +720,23 @@ namespace LinAlg.Matrix
         // Swaps the columns of a matrix
         private void SwapCols(int c1, int c2)
         {
-            for(int i = 0; i < rowLength; i++)
+            for (int i = 0; i < rowLength; i++)
             {
-                var temp = this[i, c1];
-
-                this[i, c1] = this[i, c2];
-                this[i, c2] = temp;
+                (this[i, c2], this[i, c1]) = (this[i, c1], this[i, c2]);
             }
         }
 
         // Calculates the determinant
         private float determinant()
         {
-            var mat = LUDecomposition();
+            (Matrix, Matrix) mat = LUDecomposition();
 
             float det = 1;
             for (int i = 0; i < rows.Length; i++)
+            {
                 det *= mat.Item2.rows[i].nums[i].Real;
+            }
+
             return det;
         }
 
@@ -734,7 +753,7 @@ namespace LinAlg.Matrix
                 {
                     float multiplier = U.rows[row].nums[col].Real / pivot;
                     U.rows[row] = U.rows[row] - U.rows[col] * multiplier;
-                    L.rows[row].nums[col] = new Complex.Complex(multiplier,0);
+                    L.rows[row].nums[col] = new ComplexNumber(multiplier, 0);
                 }
                 //U.rows[col] *= 1 / (U.rows[col].nums[col]);
             }
@@ -748,9 +767,10 @@ namespace LinAlg.Matrix
 
             for (int row = 0; row < rows.Length; row++)
             {
+                var r = rows[row].nums.AsSpan();
                 for (int col = 0; col < rows[row].nums.Length; col++)
                 {
-                    mT.rows[col].nums[row] = rows[row].nums[col];
+                    mT.rows[col].nums[row] = r[col];
                 }
             }
 
@@ -767,7 +787,9 @@ namespace LinAlg.Matrix
         public Matrix SubMatrix(int row, int col)
         {
             if (row < 0 || col < 0 || row >= rowLength || col >= colLength)
+            {
                 throw new ArgumentException("The row and column index cant be less than 0 or greater than the size");
+            }
 
             Matrix sub = new Matrix(rowLength - row, colLength - col);
 
@@ -790,16 +812,20 @@ namespace LinAlg.Matrix
         /// <exception cref="ArgumentException"></exception>
         public Matrix SubMatrix((int row, int col) m1, (int col, int row) m2)
         {
-            if(m2.row < m1.row || m2.col < m1.col)
-                throw new ArgumentException("the indexes in the first parameter must be less or equal to the indexes in the second parameter");
-            else if (m1.row < 0 || m1.col < 0 || m2.row >= rowLength || m2.col >= colLength)
-                throw new ArgumentException("The row and column index cant be less than 0 or greater than the size");
-
-            Matrix sub = new Matrix(m2.row - m1.row+1, m2.col - m1.col+1);
-
-            for(int r = m1.row; r < m2.row+1; r++)
+            if (m2.row < m1.row || m2.col < m1.col)
             {
-                for(int c = m1.col; c < m2.col+1; c++)
+                throw new ArgumentException("the indexes in the first parameter must be less or equal to the indexes in the second parameter");
+            }
+            else if (m1.row < 0 || m1.col < 0 || m2.row >= rowLength || m2.col >= colLength)
+            {
+                throw new ArgumentException("The row and column index cant be less than 0 or greater than the size");
+            }
+
+            Matrix sub = new Matrix(m2.row - m1.row + 1, m2.col - m1.col + 1);
+
+            for (int r = m1.row; r < m2.row + 1; r++)
+            {
+                for (int c = m1.col; c < m2.col + 1; c++)
                 {
                     sub[r - m1.row, c - m1.col] = this[r, c];
                 }
@@ -807,12 +833,36 @@ namespace LinAlg.Matrix
 
             return sub;
         }
+        
         public override string ToString()
         {
             string output = "";
             for (int i = 0; i < rows.Length; i++)
+            {
                 output += $"({rows[i]}), \n";
+            }
+
             return output;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            if (ReferenceEquals(obj, null))
+            {
+                return false;
+            }
+
+            throw new NotImplementedException();
+        }
+
+        public override int GetHashCode()
+        {
+            throw new NotImplementedException();
         }
     }
 }

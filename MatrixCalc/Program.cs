@@ -1,12 +1,6 @@
-﻿using System.Runtime.InteropServices;
-using System.Diagnostics;
-using LinAlg.Matrix;
-using LinAlg.Complex;
-using System.Windows.Markup;
-using BenchmarkDotNet;
-using BenchmarkDotNet.Attributes;
+﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Order;
-using BenchmarkDotNet.Running;
+using LinAlg.Matricies;
 
 namespace MatrixCalc
 {
@@ -15,39 +9,36 @@ namespace MatrixCalc
     [RankColumn]
     public class MatrixMulBenchmark
     {
-        static float[][] InitJaggedArray(int length)
-        {
-            var f = new float[length][];
-
-            for(int i = 0; i < length; i++)
-            {
-                f[i] = new float[length];
-            }
-
-            return f;
-        }
-
-        private Matrix matrix = new Matrix(5,5);
-        private float[,] f1 = new float[100,100];
-        private float[][] f2 = InitJaggedArray(100);
+        private Matrix matrix = new Matrix(100, 100);
 
         [Benchmark]
-        public void NewMatrix1()
+        public void ParallelMultiply()
         {
-            new Matrix(f1);
+            Matrix.ParallelMultiply(matrix, matrix);
         }
 
         [Benchmark]
-        public void NewMatrix2()
+        public void RegularMultiply()
         {
-            new Matrix(f2);
+            Matrix.RegularMultiply(matrix, matrix);
         }
     }
     class Program
     {
         static void Main()
         {
-            BenchmarkRunner.Run<MatrixMulBenchmark>();
+            Matrix m1 = new float[,]
+            {
+                { 5, 2, 6 },
+                { 3, 6, 3 },
+                { 1, 8, -2 }
+            };
+
+            Vector v1 = new float[]
+            { 4, 2, 8 };
+
+            Console.WriteLine(m1.Inverse * v1);
         }
     }
+    //BenchmarkRunner.Run<MatrixMulBenchmark>();
 }
